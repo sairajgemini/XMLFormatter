@@ -10,17 +10,29 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author saikatgupta
  * This Singleton Utility class will contain all utility methods of XML formatting
  */
 public final class XMLFileUtility implements Serializable {
-    protected XMLFileUtility() {}
 
-    public static final String getXmlFilePath(final boolean isSrcFile) {
+    static final String ATTR_EXTRACTION_REGEX = "(?<==)([^\\s\"<>=]+)";
+    static final String ELEMENT_NEW_LINE_REGEX = "((?<=<\\/)\\w+(>))";
+    static final String REPLACEMENT = "\"$1\"";
+    static final String NEW_LINE_REPLACEMENT = "$1\n";
+    static final String SLASH_PATTERN_REPLACEMENT = "\"/";
+
+    static final Pattern ATTR_VALUE_SLASH_PATTERN_REGEX = Pattern.compile("(?<=\")(\\w+)(\\/\")");
+
+    protected XMLFileUtility() {
+    }
+
+    public static String getXmlFilePath(final boolean isSrcFile) {
         Scanner in = new Scanner(System.in);
-        if(isSrcFile) {
+        if (isSrcFile) {
             System.out.print("Source XML filename: ");
         } else {
             System.out.print("Enter destination filename: ");
@@ -28,19 +40,19 @@ public final class XMLFileUtility implements Serializable {
         return in.nextLine();
     }
 
-    public static final Path writeToFile(final String src, final Path dest) throws IOException {
+    public static Path writeToFile(final String src, final Path dest) throws IOException {
         try {
             // read all lines from source Path
             List<String> lines = Files.readAllLines(Paths.get(src));
-            StringBuilder currentLine = new StringBuilder();
+            StringBuilder xmlData = new StringBuilder();
             // write all lines to the destination Path
             for (String line : lines) {
-                if(!line.isEmpty()) {
-                    currentLine.append(XMLFormatterUtility.findAndFormatXmlInput(line));
+                if (!line.isEmpty()) {
+                    xmlData.append(line);
                 }
             }
-            Files.write(dest, currentLine.toString().getBytes());
-
+            String xmlOutput = XMLFormatterUtility.formatXml(xmlData);
+            Files.write(dest, xmlOutput.getBytes());
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -49,41 +61,36 @@ public final class XMLFileUtility implements Serializable {
 
     public static final class XMLFormatterUtility {
         // This REGEX searches all xml attributes without quotes
-        static final String ATTR_EXTRACTION_REGEX = "(?<==)([^\\s\"<>]+)";
-        static final String ACTIVE_BINARY_START_TAG = "<ActiveBinary>";
-        static final String ACTIVE_BINARY_END_TAG = "</ActiveBinary>";
-        static final String REPLACEMENT = "\"$1\"";
         static final Logger LOGGER = LoggerFactory.getLogger(XMLFormatterUtility.class);
 
-        static boolean isActiveBinaryBlock = false;
-
-        private XMLFormatterUtility() {}
-
-        public static final String findAndFormatXmlInput(String xmlLineInput) {
-            xmlLineInput = xmlLineInput.replaceAll(ATTR_EXTRACTION_REGEX, REPLACEMENT);
-
-            if(xmlLineInput.endsWith("/\">")) {
-                xmlLineInput = xmlLineInput.replaceFirst("/\">", "\"/>");
-            }
-            // Linearize Active Binary data
-            if(xmlLineInput.contains(ACTIVE_BINARY_START_TAG)) {
-                isActiveBinaryBlock = true;
-            }
-
-            if(!xmlLineInput.contains(ACTIVE_BINARY_END_TAG) && isActiveBinaryBlock) {
-                return xmlLineInput;
-            } else {
-                isActiveBinaryBlock = false;
-            }
-
-            return xmlLineInput.concat("\n");
+        private XMLFormatterUtility() {
         }
 
-        public static final void formatXMLFile() throws IOException {
+        public static String formatXml(final StringBuilder currentLine) {
+            String xmlOutput = currentLine.toString();
+            xmlOutput = xmlOutput.replaceAll(ATTR_EXTRACTION_REGEX, REPLACEMENT).trim()
+                    .replaceAll(ELEMENT_NEW_LINE_REGEX, NEW_LINE_REPLACEMENT);
+
+            xmlOutput = replaceAllValueInMatcherGroup(xmlOutput, ATTR_VALUE_SLASH_PATTERN_REGEX, 2,
+                    SLASH_PATTERN_REPLACEMENT);
+            return xmlOutput;
+        }
+
+        public static String replaceAllValueInMatcherGroup(String xmlOutput, Pattern pattern, int groupVal,
+                                                           String replacement) {
+            Matcher slashMatcher = pattern.matcher(xmlOutput);
+            if (slashMatcher.find()) {
+                String group = slashMatcher.group(groupVal);
+                xmlOutput = xmlOutput.replaceAll(group, replacement);
+            }
+            return xmlOutput;
+        }
+
+        public static void formatXMLFile() throws IOException {
             String srcFilePath = XMLFileUtility.getXmlFilePath(true);
             String destPath = XMLFileUtility.getXmlFilePath(false);
             Path destFile = Paths.get(destPath);
-            if(Files.exists(destFile)) {
+            if (Files.exists(destFile)) {
                 Files.delete(destFile);
                 LOGGER.info("Earlier destination file {} deleted successfully.", destPath);
             }
