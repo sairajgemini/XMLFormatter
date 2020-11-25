@@ -19,18 +19,21 @@ import java.util.regex.Pattern;
  */
 public final class XMLFileUtility implements Serializable {
 
-    static final String ATTR_EXTRACTION_REGEX = "(?<==)([^\\s\"<>=]+)";
-    static final String ELEMENT_NEW_LINE_REGEX = "((?<=<\\/)\\w+(>))";
-    static final String REPLACEMENT = "\"$1\"";
-    static final String NEW_LINE_REPLACEMENT = "$1\n";
-    static final String SLASH_PATTERN_REPLACEMENT = "\"/";
+    private static final String ATTR_EXTRACTION_REGEX = "(?<==)([^\\s\"<>=]+)";
+    private static final String ELEMENT_NEW_LINE_REGEX = "((?<=<\\/)\\w+(>))";
+    private static final String OPENING_TAG_REGEX = "(?<=<)[^\\s\\\"\\/<>]+(?=>)";
+    private static final String CLOSING_TAG_REGEX = "(?<=<\\/)[^\\s\\\"\\/<>]+(?<!>)$";
 
-    static final Pattern ATTR_VALUE_SLASH_PATTERN_REGEX = Pattern.compile("(?<=\")(\\w+)(\\/\")");
+    private static final String REPLACEMENT = "\"$1\"";
+    private static final String NEW_LINE_REPLACEMENT = "$1\n";
+    private static final String SLASH_PATTERN_REPLACEMENT = "\"/";
 
-    protected XMLFileUtility() {
-    }
+    private static final Pattern ATTR_VALUE_SLASH_PATTERN_REGEX = Pattern.compile("(?<=\")(\\w+)(\\/\")");
+    private static final Logger LOGGER = LoggerFactory.getLogger(XMLFileUtility.class);
 
-    public static String getXmlFilePath(final boolean isSrcFile) {
+    private XMLFileUtility() {}
+
+    public static final String getXmlFilePath(final boolean isSrcFile) {
         Scanner in = new Scanner(System.in);
         if (isSrcFile) {
             System.out.print("Source XML filename: ");
@@ -40,18 +43,12 @@ public final class XMLFileUtility implements Serializable {
         return in.nextLine();
     }
 
-    public static Path writeToFile(final String src, final Path dest) throws IOException {
+    public static final Path writeToFile(final String src, final Path dest) {
         try {
-            // read all lines from source Path
-            List<String> lines = Files.readAllLines(Paths.get(src));
-            StringBuilder xmlData = new StringBuilder();
-            // write all lines to the destination Path
-            for (String line : lines) {
-                if (!line.isEmpty()) {
-                    xmlData.append(line);
-                }
-            }
+            // read XML file
+            StringBuilder xmlData = readXMLFile(src);
             String xmlOutput = XMLFormatterUtility.formatXml(xmlData);
+            // write to the destination Path
             Files.write(dest, xmlOutput.getBytes());
         } catch (IOException ex) {
             ex.printStackTrace();
@@ -59,44 +56,53 @@ public final class XMLFileUtility implements Serializable {
         return dest;
     }
 
-    public static final class XMLFormatterUtility {
-        // This REGEX searches all xml attributes without quotes
-        static final Logger LOGGER = LoggerFactory.getLogger(XMLFormatterUtility.class);
+    public static final StringBuilder readXMLFile(final String src) throws IOException {
+        // read all lines from source Path
+        List<String> lines = Files.readAllLines(Paths.get(src));
+        StringBuilder xmlData = new StringBuilder();
+        for (String line : lines) {
+            if (!line.isEmpty()) {
+                xmlData.append(line);
+            }
+        }
+        return xmlData;
+    }
 
-        private XMLFormatterUtility() {
+    public static final void generateFormattedXMLFile() throws IOException {
+        String srcFilePath = XMLFileUtility.getXmlFilePath(true);
+        String destPath = XMLFileUtility.getXmlFilePath(false);
+        Path destFile = Paths.get(destPath);
+        if (Files.exists(destFile)) {
+            Files.delete(destFile);
+            LOGGER.info("Earlier destination file {} deleted successfully.", destPath);
         }
 
-        public static String formatXml(final StringBuilder currentLine) {
+        destFile = Files.createFile(Paths.get(destPath));
+        XMLFileUtility.writeToFile(srcFilePath, destFile);
+    }
+
+    public static final class XMLFormatterUtility {
+        // This REGEX searches all xml attributes without quotes
+        private XMLFormatterUtility() {}
+
+        public static final String formatXml(final StringBuilder currentLine) {
             String xmlOutput = currentLine.toString();
             xmlOutput = xmlOutput.replaceAll(ATTR_EXTRACTION_REGEX, REPLACEMENT).trim()
                     .replaceAll(ELEMENT_NEW_LINE_REGEX, NEW_LINE_REPLACEMENT);
-
             xmlOutput = replaceAllValueInMatcherGroup(xmlOutput, ATTR_VALUE_SLASH_PATTERN_REGEX, 2,
                     SLASH_PATTERN_REPLACEMENT);
+
             return xmlOutput;
         }
 
-        public static String replaceAllValueInMatcherGroup(String xmlOutput, Pattern pattern, int groupVal,
-                                                           String replacement) {
+        public static final String replaceAllValueInMatcherGroup(String xmlOutput, final Pattern pattern, final int groupVal,
+                                                           final String replacement) {
             Matcher slashMatcher = pattern.matcher(xmlOutput);
             if (slashMatcher.find()) {
                 String group = slashMatcher.group(groupVal);
                 xmlOutput = xmlOutput.replaceAll(group, replacement);
             }
             return xmlOutput;
-        }
-
-        public static void formatXMLFile() throws IOException {
-            String srcFilePath = XMLFileUtility.getXmlFilePath(true);
-            String destPath = XMLFileUtility.getXmlFilePath(false);
-            Path destFile = Paths.get(destPath);
-            if (Files.exists(destFile)) {
-                Files.delete(destFile);
-                LOGGER.info("Earlier destination file {} deleted successfully.", destPath);
-            }
-
-            destFile = Files.createFile(Paths.get(destPath));
-            XMLFileUtility.writeToFile(srcFilePath, destFile);
         }
     }
 }
