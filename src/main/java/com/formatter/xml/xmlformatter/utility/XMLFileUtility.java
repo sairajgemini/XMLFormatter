@@ -21,17 +21,22 @@ public final class XMLFileUtility implements Serializable {
 
     private static final String ATTR_EXTRACTION_REGEX = "(?<==)([^\\s\"<>=]+)";
     private static final String ELEMENT_NEW_LINE_REGEX = "((?<=<\\/)\\w+(>))";
-    private static final String OPENING_TAG_REGEX = "(?<=<)[^\\s\\\"\\/<>]+(?=>)";
+    /*private static final String OPENING_TAG_REGEX = "(?<=<)[^\\s\\\"\\/<>]+(?=>)";
     private static final String CLOSING_TAG_REGEX = "(?<=<\\/)[^\\s\\\"\\/<>]+(?<!>)$";
+    private static final String ELEMENT_VALUE_REGEX = "(?<=<)\\w+";
+    private static final String ELEMENT_CLOSING_VALUE_REGEX = "(?<=<\\/)\\w+";*/
+    private static final String BLANK_ATTR_REGEX = "=>+";
 
     private static final String REPLACEMENT = "\"$1\"";
     private static final String NEW_LINE_REPLACEMENT = "$1\n";
     private static final String SLASH_PATTERN_REPLACEMENT = "\"/";
+    private static final String BLANK_ATTR_REPLACEMENT = "=\"\">";
 
     private static final Pattern ATTR_VALUE_SLASH_PATTERN_REGEX = Pattern.compile("(?<=\")(\\w+)(\\/\")");
     private static final Logger LOGGER = LoggerFactory.getLogger(XMLFileUtility.class);
 
-    private XMLFileUtility() {}
+    private XMLFileUtility() {
+    }
 
     public static final String getXmlFilePath(final boolean isSrcFile) {
         Scanner in = new Scanner(System.in);
@@ -83,20 +88,23 @@ public final class XMLFileUtility implements Serializable {
 
     public static final class XMLFormatterUtility {
         // This REGEX searches all xml attributes without quotes
-        private XMLFormatterUtility() {}
+        private XMLFormatterUtility() {
+        }
 
         public static final String formatXml(final StringBuilder currentLine) {
             String xmlOutput = currentLine.toString();
             xmlOutput = xmlOutput.replaceAll(ATTR_EXTRACTION_REGEX, REPLACEMENT).trim()
-                    .replaceAll(ELEMENT_NEW_LINE_REGEX, NEW_LINE_REPLACEMENT);
+                    .replaceAll(ELEMENT_NEW_LINE_REGEX, NEW_LINE_REPLACEMENT)
+                    .replaceAll(BLANK_ATTR_REGEX, BLANK_ATTR_REPLACEMENT);
             xmlOutput = replaceAllValueInMatcherGroup(xmlOutput, ATTR_VALUE_SLASH_PATTERN_REGEX, 2,
                     SLASH_PATTERN_REPLACEMENT);
 
             return xmlOutput;
         }
 
-        public static final String replaceAllValueInMatcherGroup(String xmlOutput, final Pattern pattern, final int groupVal,
-                                                           final String replacement) {
+        public static final String replaceAllValueInMatcherGroup(String xmlOutput, final Pattern pattern,
+                final int groupVal,
+                final String replacement) {
             Matcher slashMatcher = pattern.matcher(xmlOutput);
             if (slashMatcher.find()) {
                 String group = slashMatcher.group(groupVal);
