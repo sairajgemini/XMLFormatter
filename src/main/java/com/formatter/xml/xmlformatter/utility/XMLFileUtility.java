@@ -19,23 +19,31 @@ import java.util.regex.Pattern;
  */
 public final class XMLFileUtility implements Serializable {
 
-    private static final String ATTR_EXTRACTION_REGEX = "(?<==)([^\\s\"<>=]+)";
+    private static final String ATTR_EXTRACTION_REGEX = "(?<==)([^\\s<>=]+)";
     private static final String ELEMENT_NEW_LINE_REGEX = "((?<=<\\/)\\w+(>))";
-    /*private static final String OPENING_TAG_REGEX = "(?<=<)[^\\s\\\"\\/<>]+(?=>)";
-    private static final String CLOSING_TAG_REGEX = "(?<=<\\/)[^\\s\\\"\\/<>]+(?<!>)$";
-    private static final String ELEMENT_VALUE_REGEX = "(?<=<)\\w+";
-    private static final String ELEMENT_CLOSING_VALUE_REGEX = "(?<=<\\/)\\w+";*/
+    private static final String BROKEN_END_TAG_REGEX = "<([^\\/><]+)>([^><]+)<\\/[\\w\\n+‡^>]+";
+    private static final String ELEMENT_MISSING_CLOSING_TAG_REGEX = "<.*(=[\\s]+)";
     private static final String BLANK_ATTR_REGEX = "=>+";
+    private static final String BLANK_ATTR_2_REGEX = "(?<=\")([\\w\\s]+)(?=<)";
+    private static final String BLANK_ATTR_3_REGEX = "\"[\\s]*(?=<)";
 
     private static final String REPLACEMENT = "\"$1\"";
     private static final String NEW_LINE_REPLACEMENT = "$1\n";
     private static final String SLASH_PATTERN_REPLACEMENT = "\"/";
     private static final String BLANK_ATTR_REPLACEMENT = "=\"\">";
+    private static final String BROKEN_END_TAG_REPLACEMENT = "<$1>$2<\\/$1>";
+    private static final String ELEMENT_MISSING_END_TAG_REPLACEMENT = "$0\"\">";
+    private static final String BLANK_ATTR_2_REPLACEMENT = "$1=\"\">";
+    private static final String BLANK_ATTR_3_REPLACEMENT = "$0>";
 
     private static final Pattern ATTR_VALUE_SLASH_PATTERN_REGEX = Pattern.compile("(?<=\")(\\w+)(\\/\")");
     private static final Logger LOGGER = LoggerFactory.getLogger(XMLFileUtility.class);
 
     private XMLFileUtility() {
+    }
+
+    public static void main(String[] args) throws IOException {
+        XMLFileUtility.generateFormattedXMLFile();
     }
 
     public static final String getXmlFilePath(final boolean isSrcFile) {
@@ -93,9 +101,14 @@ public final class XMLFileUtility implements Serializable {
 
         public static final String formatXml(final StringBuilder currentLine) {
             String xmlOutput = currentLine.toString();
-            xmlOutput = xmlOutput.replaceAll(ATTR_EXTRACTION_REGEX, REPLACEMENT).trim()
+            xmlOutput = xmlOutput
+                    .replaceAll(ATTR_EXTRACTION_REGEX, REPLACEMENT)
+                    .replaceAll(BROKEN_END_TAG_REGEX, BROKEN_END_TAG_REPLACEMENT)
                     .replaceAll(ELEMENT_NEW_LINE_REGEX, NEW_LINE_REPLACEMENT)
-                    .replaceAll(BLANK_ATTR_REGEX, BLANK_ATTR_REPLACEMENT);
+                    .replaceAll(BLANK_ATTR_REGEX, BLANK_ATTR_REPLACEMENT)
+                    .replaceAll(BLANK_ATTR_3_REGEX, BLANK_ATTR_3_REPLACEMENT)
+                    .replaceAll(BLANK_ATTR_2_REGEX, BLANK_ATTR_2_REPLACEMENT)
+                    .replaceAll(ELEMENT_MISSING_CLOSING_TAG_REGEX, ELEMENT_MISSING_END_TAG_REPLACEMENT);
             xmlOutput = replaceAllValueInMatcherGroup(xmlOutput, ATTR_VALUE_SLASH_PATTERN_REGEX, 2,
                     SLASH_PATTERN_REPLACEMENT);
 
